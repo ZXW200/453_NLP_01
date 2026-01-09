@@ -1,74 +1,105 @@
 """
-NLP预处理实验 - 模型训练与评估
-SCC453 Natural Language Processing
+train.py
+------------------------------------
+Train & evaluate models on:
+  - IMDb (binary)
+  - Emotion (6-class)
 
-输入：train_data.csv, test_data.csv
-输出：实验结果对比
+Input CSVs (from ./data_out):
+  imdb_train.csv, imdb_test.csv
+  emotion_train.csv, emotion_test.csv
+
+Outputs:
+  results.csv (in ./data_out)
 """
 
+import os
+import time
 import pandas as pd
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score, f1_score, classification_report
+from sklearn.svm import LinearSVC
+from sklearn.metrics import accuracy_score, f1_score
 
-# 加载数据
-print("加载数据...")
-train = pd.read_csv('train_data.csv')
-test = pd.read_csv('test_data.csv')
-print(f"训练集: {len(train)}, 测试集: {len(test)}")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data_out")
 
-# 4种预处理方法
-methods = ['baseline', 'no_stopwords', 'stemming', 'full']
+PREPROCESS_COLS = ["baseline", "no_stopwords", "stemming", "full"]
 
-# 2种模型
-models = {
-    'SVM': SVC(kernel='linear'),
-    'LogisticRegression': LogisticRegression(max_iter=1000)
+TFIDF_KWARGS = dict(
+    ngram_range=(1, 2),
+    min_df=2,
+    max_df=0.9,
+    sublinear_tf=True
+)
+
+MODELS = {
+    # n_jobs removed to avoid sklearn warning
+    "LogisticRegression": LogisticRegression(max_iter=2000, random_state=42),
+    "LinearSVC": LinearSVC(dual="auto", max_iter=2000, random_state=42),
 }
 
-# 存储结果
-results = []
+def run_dataset(dataset_name: str, train_path: str, test_path: str) -> pd.DataFrame:
+    train_df = pd.read_csv(train_path).fillna("")
+    test_df = pd.read_csv(test_path).fillna("")
 
-print("\n=== 开始训练 ===")
-for method in methods:
-    # TF-IDF向量化
-    tfidf = TfidfVectorizer(max_features=5000)
-    X_train = tfidf.fit_transform(train[method])
-    X_test = tfidf.transform(test[method])
-    y_train = train['label']
-    y_test = test['label']
+    y_train = train_df["label"].astype(int).values
+    y_test = test_df["label"].astype(int).values
 
-    for model_name, model in models.items():
-        print(f"训练: {method} + {model_name}...")
+    rows = []
 
-        # 训练
-        model.fit(X_train, y_train)
+    for col in PREPROCESS_COLS:
+        vec = TfidfVectorizer(**TFIDF_KWARGS)
+        X_train = vec.fit_transform(train_df[col].astype(str))
+        X_test = vec.transform(test_df[col].astype(str))
+        vocab_size = len(vec.vocabulary_)
 
-        # 预测
-        y_pred = model.predict(X_test)
+        for model_name, model in MODELS.items():
+            t0 = time.time()
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            sec = time.time() - t0
 
-        # 评估
-        acc = accuracy_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred)
+            acc = accuracy_score(y_test, y_pred)
+            macro_f1 = f1_score(y_test, y_pred, average="macro")  # works for binary + multiclass
 
-        results.append({
-            'method': method,
-            'model': model_name,
-            'accuracy': acc,
-            'f1': f1
-        })
-        print(f"  Accuracy: {acc:.4f}, F1: {f1:.4f}")
+            rows.append({
+                "Dataset": dataset_name,
+                "Preprocessing": col,
+                "Model": model_name,
+                "VocabSize": vocab_size,
+                "Accuracy": acc,
+                "MacroF1": macro_f1,
+                "Seconds": sec
+            })
 
-# 结果汇总
-print("\n=== 结果汇总 ===")
-results_df = pd.DataFrame(results)
-print(results_df.to_string(index=False))
+            print(f"[{dataset_name}] {col:12s} + {model_name:16s} "
+                  f"Acc={acc:.4f} MacroF1={macro_f1:.4f} V={vocab_size} ({sec:.2f}s)")
 
-# 保存结果
-results_df.to_csv('results.csv', index=False)
-print("\n结果已保存: results.csv")
+    return pd.DataFrame(rows)
 
-# 找最佳组合
-best = results_df.loc[results_df['accuracy'].idxmax()]
-print(f"\n最佳组合: {best['method']} + {best['model']}, Accuracy: {best['accuracy']:.4f}")
+def main():
+    imdb_train = os.path.join(DATA_DIR, "imdb_train.csv")
+    imdb_test = os.path.join(DATA_DIR, "imdb_test.csv")
+    emo_train = os.path.join(DATA_DIR, "emotion_train.csv")
+    emo_test = os.path.join(DATA_DIR, "emotion_test.csv")
+
+    for p in [imdb_train, imdb_test, emo_train, emo_test]:
+        if not os.path.exists(p):
+            raise FileNotFoundError(f"Missing file: {p}. Run main.py first.")
+
+    res = []
+    res.append(run_dataset("IMDb", imdb_train, imdb_test))
+    res.append(run_dataset("Emotion", emo_train, emo_test))
+
+    res_df = pd.concat(res, ignore_index=True)
+    out_path = os.path.join(DATA_DIR, "results.csv")
+    res_df.to_csv(out_path, index=False)
+
+    print("\nSaved:", out_path)
+    print("\nTop rows by MacroF1:")
+    print(res_df.sort_values(["Dataset", "MacroF1"], ascending=[True, False]).head(12).to_string(index=False))
+
+if __name__ == "__main__":
+    main()
