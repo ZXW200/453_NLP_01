@@ -40,7 +40,7 @@ models = {
     "LinearSVC": LinearSVC(dual="auto", max_iter=2000, random_state=42),
 }
 
-def run(name: str, train_path: str, test_path: str) -> pd.DataFrame:
+def run(name: str, train_path: str, test_path: str):
     df1 = pd.read_csv(train_path).fillna("")
     df2 = pd.read_csv(test_path).fillna("")
 
@@ -103,3 +103,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
