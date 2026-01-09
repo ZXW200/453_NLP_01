@@ -75,7 +75,7 @@ punct_tbl = str.maketrans("", "", string.punctuation)
 # Preprocessing functions (Modified)
 # -------------------------
 
-def base(text: str):
+def baseline(text: str):
     """
     [对照组] Raw / Tokenization Only
     策略：只去HTML和URL，保留绝大多数信息（包括停用词、标点、数字）。
@@ -152,7 +152,7 @@ def full(text: str):
 
 
 funcs = {
-    "base": base,  # 1. 不处理 (Raw)
+    "baseline": baseline,  # 1. 不处理 (Raw)
     "no_stopwords": no_stopwords,  # 2. 正常 (Standard)
     "stemming": stemming,  # 3. 激进 (Aggressive)
     "full": full,  # 4. 全面 (Comprehensive)
@@ -168,7 +168,7 @@ def get_csvs(dir: str):
                 lst.append(os.path.join(root, f))
     return lst
 
-def load_csv(dir: str) -> pd.DataFrame:
+def load_csv(dir: str):
     """
     Find CSVs under dir, prefer the largest one (usually main data).
     """
@@ -187,7 +187,7 @@ def load_csv(dir: str) -> pd.DataFrame:
     except UnicodeDecodeError:
         return pd.read_csv(path, encoding="latin-1")
 
-def fix_cols(df: pd.DataFrame, name: str) -> pd.DataFrame:
+def fix_cols(df: pd.DataFrame, name: str):
     """
     Make sure df has columns: text, label (int).
     Handles common variants.
@@ -234,7 +234,7 @@ def fix_cols(df: pd.DataFrame, name: str) -> pd.DataFrame:
 
     return df[["text", "label"]]
 
-def do_preprocess(df: pd.DataFrame) -> pd.DataFrame:
+def do_preprocess(df: pd.DataFrame) :
     df = df.copy()
     for name, fn in funcs.items():
         df[name] = df["text"].map(fn)
@@ -292,4 +292,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
