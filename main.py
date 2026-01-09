@@ -75,7 +75,7 @@ punct_tbl = str.maketrans("", "", string.punctuation)
 # Preprocessing functions (Modified)
 # -------------------------
 
-def clean1(text: str):
+def clean_baseline(text: str):
     """
     [对照组] Raw / Tokenization Only
     策略：只去HTML和URL，保留绝大多数信息（包括停用词、标点、数字）。
@@ -89,7 +89,7 @@ def clean1(text: str):
     return text
 
 
-def clean2(text: str):
+def clean_no_stopwords(text: str):
     """
     [正常组] Standard / Bag-of-Words
     策略：去HTML + 去标点 + 去除 *所有* 停用词。
@@ -108,7 +108,7 @@ def clean2(text: str):
     return " ".join(words)
 
 
-def clean3(text: str):
+def clean_stemming(text: str):
     """
     [激进组] Aggressive / Stemming
     策略：PorterStemmer (砍词尾) + 去数字 + 去所有停用词。
@@ -128,7 +128,7 @@ def clean3(text: str):
     return " ".join(res)
 
 
-def clean4(text: str):
+def clean_full(text: str):
     """
     [全面组] Comprehensive / Context-Aware
     策略：Lemmatization (还原原型) + *保留* 否定词(not) + 保留数字意义(可选)。
@@ -152,10 +152,10 @@ def clean4(text: str):
 
 
 funcs = {
-    "baseline": clean1,  # 1. 不处理 (Raw)
-    "no_stopwords": clean2,  # 2. 正常 (Standard)
-    "stemming": clean3,  # 3. 激进 (Aggressive)
-    "full": clean4,  # 4. 全面 (Comprehensive)
+    "baseline": clean_baseline,  # 1. 不处理 (Raw)
+    "no_stopwords": clean_no_stopwords,  # 2. 正常 (Standard)
+    "stemming": clean_stemming,  # 3. 激进 (Aggressive)
+    "full": clean_full,  # 4. 全面 (Comprehensive)
 }
 # -------------------------
 # Kaggle helpers
