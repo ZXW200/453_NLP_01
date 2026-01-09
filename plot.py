@@ -20,22 +20,22 @@ order = ["baseline", "no_stopwords", "stemming", "full"]
 metric = "MacroF1"
 
 
-def add_labels(ax, fmt="{:.3f}"):
+def add_bar_labels(ax, fmt="{:.3f}"):
     """Add numeric labels on bar tops."""
     for c in ax.containers:
         ax.bar_label(c, fmt=fmt, padding=3, fontsize=9)
 
 
-def make_bar(df, ds, name):
+def plot_bar(df, dataset, name):
     """Absolute bar chart with value labels."""
-    sub = df[df["Dataset"] == ds]
-    tbl = sub.pivot(index="Preprocessing", columns="Model", values=metric).loc[order]
+    data = df[df["Dataset"] == dataset]
+    pivot = data.pivot(index="Preprocessing", columns="Model", values=metric).loc[order]
 
-    ax = tbl.plot(kind="bar")
-    ax.set_title(f"{ds}: {metric} by Preprocessing")
+    ax = pivot.plot(kind="bar")
+    ax.set_title(f"{dataset}: {metric} by Preprocessing")
     ax.set_xlabel("Preprocessing")
     ax.set_ylabel(metric)
-    add_labels(ax, fmt="{:.3f}")
+    add_bar_labels(ax, fmt="{:.3f}")
 
     plt.tight_layout()
     path = os.path.join(data_dir, name)
@@ -44,29 +44,29 @@ def make_bar(df, ds, name):
     print("Saved:", path)
 
 
-def make_delta_bar(df, ds, name):
+def plot_delta(df, dataset, name):
     """Delta bar chart (relative to baseline) with +/- value labels."""
-    sub = df[df["Dataset"] == ds].copy()
+    data = df[df["Dataset"] == dataset].copy()
 
-    lst = []
-    for m in sub["Model"].unique():
-        b = sub[(sub["Model"] == m) & (sub["Preprocessing"] == "baseline")][metric].iloc[0]
-        for _, r in sub[sub["Model"] == m].iterrows():
-            lst.append({
-                "Preprocessing": r["Preprocessing"],
-                "Model": m,
-                "Delta": r[metric] - b
+    rows = []
+    for model in data["Model"].unique():
+        base = data[(data["Model"] == model) & (data["Preprocessing"] == "baseline")][metric].iloc[0]
+        for _, row in data[data["Model"] == model].iterrows():
+            rows.append({
+                "Preprocessing": row["Preprocessing"],
+                "Model": model,
+                "Delta": row[metric] - base
             })
 
-    delta_df = pd.DataFrame(lst)
-    tbl = delta_df.pivot(index="Preprocessing", columns="Model", values="Delta").loc[order]
+    deltas = pd.DataFrame(rows)
+    pivot = deltas.pivot(index="Preprocessing", columns="Model", values="Delta").loc[order]
 
-    ax = tbl.plot(kind="bar")
+    ax = pivot.plot(kind="bar")
     ax.axhline(0, linewidth=1)
-    ax.set_title(f"{ds}: Δ{metric} vs baseline")
+    ax.set_title(f"{dataset}: Δ{metric} vs baseline")
     ax.set_xlabel("Preprocessing")
     ax.set_ylabel(f"Δ{metric}")
-    add_labels(ax, fmt="{:+.3f}")
+    add_bar_labels(ax, fmt="{:+.3f}")
 
     plt.tight_layout()
     path = os.path.join(data_dir, name)
@@ -75,23 +75,22 @@ def make_delta_bar(df, ds, name):
     print("Saved:", path)
 
 
-def make_line(df, ds, name):
+def plot_line(df, dataset, name):
     """Line chart with point labels."""
-    sub = df[df["Dataset"] == ds]
+    data = df[df["Dataset"] == dataset]
 
     plt.figure()
     x = list(range(len(order)))
 
-    for m in sub["Model"].unique():
-        y = sub[sub["Model"] == m].set_index("Preprocessing").loc[order][metric].tolist()
-        plt.plot(x, y, marker="o", label=m)
+    for model in data["Model"].unique():
+        y = data[data["Model"] == model].set_index("Preprocessing").loc[order][metric].tolist()
+        plt.plot(x, y, marker="o", label=model)
 
-        # annotate points
-        for i, j in zip(x, y):
-            plt.text(i, j, f"{j:.3f}", ha="center", va="bottom", fontsize=9)
+        for xi, yi in zip(x, y):
+            plt.text(xi, yi, f"{yi:.3f}", ha="center", va="bottom", fontsize=9)
 
     plt.xticks(x, order)
-    plt.title(f"{ds}: {metric} Trend")
+    plt.title(f"{dataset}: {metric} Trend")
     plt.xlabel("Preprocessing")
     plt.ylabel(metric)
     plt.legend()
@@ -109,20 +108,19 @@ def main():
 
     df = pd.read_csv(csv_path)
 
-    # Basic checks
     need = {"Dataset", "Preprocessing", "Model", metric}
     miss = need - set(df.columns)
     if miss:
         raise ValueError(f"results.csv missing columns: {miss}. Found: {df.columns.tolist()}")
 
-    for ds in ["IMDb", "Emotion"]:
-        if ds not in set(df["Dataset"].unique()):
-            print(f"Warning: dataset '{ds}' not found in results.csv. Skipping.")
+    for dataset in ["IMDb", "Emotion"]:
+        if dataset not in set(df["Dataset"].unique()):
+            print(f"Warning: dataset '{dataset}' not found in results.csv. Skipping.")
             continue
 
-        make_bar(df, ds, f"{ds.lower()}_bar.png")
-        make_delta_bar(df, ds, f"{ds.lower()}_delta_bar.png")
-        make_line(df, ds, f"{ds.lower()}_line.png")
+        plot_bar(df, dataset, f"{dataset.lower()}_bar.png")
+        plot_delta(df, dataset, f"{dataset.lower()}_delta_bar.png")
+        plot_line(df, dataset, f"{dataset.lower()}_line.png")
 
     print("\nDone. All figures are in:", data_dir)
 
