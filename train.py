@@ -22,85 +22,84 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score, f1_score
 
-base = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(base, "data_out")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data_out")
 
-cols = ["baseline", "no_stopwords", "stemming", "full"]
+PREPROCESS_COLS = ["baseline", "no_stopwords", "stemming", "full"]
 
-tfidf_args = dict(
+TFIDF_KWARGS = dict(
     ngram_range=(1, 2),
     min_df=2,
     max_df=0.9,
     sublinear_tf=True
 )
 
-models = {
+MODELS = {
     # n_jobs removed to avoid sklearn warning
     "LogisticRegression": LogisticRegression(max_iter=2000, random_state=42),
     "LinearSVC": LinearSVC(dual="auto", max_iter=2000, random_state=42),
 }
 
-def run(name: str, train_path: str, test_path: str):
-    df1 = pd.read_csv(train_path).fillna("")
-    df2 = pd.read_csv(test_path).fillna("")
+def run_dataset(dataset_name: str, train_path: str, test_path: str):
+    train_df = pd.read_csv(train_path).fillna("")
+    test_df = pd.read_csv(test_path).fillna("")
 
-    y1 = df1["label"].astype(int).values
-    y2 = df2["label"].astype(int).values
+    y_train = train_df["label"].astype(int).values
+    y_test = test_df["label"].astype(int).values
 
-    results = []
+    rows = []
 
-    for c in cols:
-        vec = TfidfVectorizer(**tfidf_args)
-        x1 = vec.fit_transform(df1[c].astype(str))
-        x2 = vec.transform(df2[c].astype(str))
-        v_size = len(vec.vocabulary_)
+    for col in PREPROCESS_COLS:
+        vec = TfidfVectorizer(**TFIDF_KWARGS)
+        X_train = vec.fit_transform(train_df[col].astype(str))
+        X_test = vec.transform(test_df[col].astype(str))
+        vocab_size = len(vec.vocabulary_)
 
-        for m_name, m in models.items():
+        for model_name, model in MODELS.items():
             t0 = time.time()
-            m.fit(x1, y1)
-            pred = m.predict(x2)
-            t = time.time() - t0
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            sec = time.time() - t0
 
-            acc = accuracy_score(y2, pred)
-            f1 = f1_score(y2, pred, average="macro")  # works for binary + multiclass
+            acc = accuracy_score(y_test, y_pred)
+            macro_f1 = f1_score(y_test, y_pred, average="macro")  # works for binary + multiclass
 
-            results.append({
-                "Dataset": name,
-                "Preprocessing": c,
-                "Model": m_name,
-                "VocabSize": v_size,
+            rows.append({
+                "Dataset": dataset_name,
+                "Preprocessing": col,
+                "Model": model_name,
+                "VocabSize": vocab_size,
                 "Accuracy": acc,
-                "MacroF1": f1,
-                "Seconds": t
+                "MacroF1": macro_f1,
+                "Seconds": sec
             })
 
-            print(f"[{name}] {c:12s} + {m_name:16s} "
-                  f"Acc={acc:.4f} MacroF1={f1:.4f} V={v_size} ({t:.2f}s)")
+            print(f"[{dataset_name}] {col:12s} + {model_name:16s} "
+                  f"Acc={acc:.4f} MacroF1={macro_f1:.4f} V={vocab_size} ({sec:.2f}s)")
 
-    return pd.DataFrame(results)
+    return pd.DataFrame(rows)
 
 def main():
-    p1 = os.path.join(data_dir, "imdb_train.csv")
-    p2 = os.path.join(data_dir, "imdb_test.csv")
-    p3 = os.path.join(data_dir, "emotion_train.csv")
-    p4 = os.path.join(data_dir, "emotion_test.csv")
+    imdb_train = os.path.join(DATA_DIR, "imdb_train.csv")
+    imdb_test = os.path.join(DATA_DIR, "imdb_test.csv")
+    emo_train = os.path.join(DATA_DIR, "emotion_train.csv")
+    emo_test = os.path.join(DATA_DIR, "emotion_test.csv")
 
-    for p in [p1, p2, p3, p4]:
+    for p in [imdb_train, imdb_test, emo_train, emo_test]:
         if not os.path.exists(p):
             raise FileNotFoundError(f"Missing file: {p}. Run main.py first.")
 
     res = []
-    res.append(run("IMDb", p1, p2))
-    res.append(run("Emotion", p3, p4))
+    res.append(run_dataset("IMDb", imdb_train, imdb_test))
+    res.append(run_dataset("Emotion", emo_train, emo_test))
 
-    df = pd.concat(res, ignore_index=True)
-    out = os.path.join(data_dir, "results.csv")
-    df.to_csv(out, index=False)
+    res_df = pd.concat(res, ignore_index=True)
+    out_path = os.path.join(DATA_DIR, "results.csv")
+    res_df.to_csv(out_path, index=False)
 
-    print("\nSaved:", out)
+    print("\nSaved:", out_path)
     print("\nTop rows by MacroF1:")
-    print(df.sort_values(["Dataset", "MacroF1"], ascending=[True, False]).head(12).to_string(index=False))
+    print(res_df.sort_values(["Dataset", "MacroF1"], ascending=[True, False]).head(12).to_string(index=False))
 
 if __name__ == "__main__":
     main()
-
