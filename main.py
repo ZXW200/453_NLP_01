@@ -75,7 +75,7 @@ punct_tbl = str.maketrans("", "", string.punctuation)
 # Preprocessing functions (Modified)
 # -------------------------
 
-def clean1(text: str) -> str:
+def clean1(text: str):
     """
     [对照组] Raw / Tokenization Only
     策略：只去HTML和URL，保留绝大多数信息（包括停用词、标点、数字）。
@@ -89,7 +89,7 @@ def clean1(text: str) -> str:
     return text
 
 
-def clean2(text: str) -> str:
+def clean2(text: str):
     """
     [正常组] Standard / Bag-of-Words
     策略：去HTML + 去标点 + 去除 *所有* 停用词。
@@ -108,7 +108,7 @@ def clean2(text: str) -> str:
     return " ".join(words)
 
 
-def clean3(text: str) -> str:
+def clean3(text: str):
     """
     [激进组] Aggressive / Stemming
     策略：PorterStemmer (砍词尾) + 去数字 + 去所有停用词。
@@ -128,7 +128,7 @@ def clean3(text: str) -> str:
     return " ".join(res)
 
 
-def clean4(text: str) -> str:
+def clean4(text: str):
     """
     [全面组] Comprehensive / Context-Aware
     策略：Lemmatization (还原原型) + *保留* 否定词(not) + 保留数字意义(可选)。
