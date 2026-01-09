@@ -12,119 +12,119 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data_out")
-CSV_PATH = os.path.join(DATA_DIR, "results.csv")
+base = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(base, "data_out")
+csv_path = os.path.join(data_dir, "results.csv")
 
-ORDER = ["baseline", "no_stopwords", "stemming", "full"]
-METRIC = "MacroF1"
+order = ["baseline", "no_stopwords", "stemming", "full"]
+metric = "MacroF1"
 
 
-def _add_bar_labels(ax, fmt="{:.3f}"):
+def add_labels(ax, fmt="{:.3f}"):
     """Add numeric labels on bar tops."""
-    for container in ax.containers:
-        ax.bar_label(container, fmt=fmt, padding=3, fontsize=9)
+    for c in ax.containers:
+        ax.bar_label(c, fmt=fmt, padding=3, fontsize=9)
 
 
-def plot_bar(df, dataset, out_name):
+def make_bar(df, ds, name):
     """Absolute bar chart with value labels."""
-    sub = df[df["Dataset"] == dataset]
-    pivot = sub.pivot(index="Preprocessing", columns="Model", values=METRIC).loc[ORDER]
+    sub = df[df["Dataset"] == ds]
+    tbl = sub.pivot(index="Preprocessing", columns="Model", values=metric).loc[order]
 
-    ax = pivot.plot(kind="bar")
-    ax.set_title(f"{dataset}: {METRIC} by Preprocessing")
+    ax = tbl.plot(kind="bar")
+    ax.set_title(f"{ds}: {metric} by Preprocessing")
     ax.set_xlabel("Preprocessing")
-    ax.set_ylabel(METRIC)
-    _add_bar_labels(ax, fmt="{:.3f}")
+    ax.set_ylabel(metric)
+    add_labels(ax, fmt="{:.3f}")
 
     plt.tight_layout()
-    out = os.path.join(DATA_DIR, out_name)
-    plt.savefig(out, dpi=200)
+    path = os.path.join(data_dir, name)
+    plt.savefig(path, dpi=200)
     plt.close()
-    print("Saved:", out)
+    print("Saved:", path)
 
 
-def plot_delta_bar(df, dataset, out_name):
+def make_delta_bar(df, ds, name):
     """Delta bar chart (relative to baseline) with +/- value labels."""
-    sub = df[df["Dataset"] == dataset].copy()
+    sub = df[df["Dataset"] == ds].copy()
 
-    rows = []
-    for model in sub["Model"].unique():
-        base = sub[(sub["Model"] == model) & (sub["Preprocessing"] == "baseline")][METRIC].iloc[0]
-        for _, r in sub[sub["Model"] == model].iterrows():
-            rows.append({
+    lst = []
+    for m in sub["Model"].unique():
+        b = sub[(sub["Model"] == m) & (sub["Preprocessing"] == "baseline")][metric].iloc[0]
+        for _, r in sub[sub["Model"] == m].iterrows():
+            lst.append({
                 "Preprocessing": r["Preprocessing"],
-                "Model": model,
-                "Delta": r[METRIC] - base
+                "Model": m,
+                "Delta": r[metric] - b
             })
 
-    delta = pd.DataFrame(rows)
-    pivot = delta.pivot(index="Preprocessing", columns="Model", values="Delta").loc[ORDER]
+    delta_df = pd.DataFrame(lst)
+    tbl = delta_df.pivot(index="Preprocessing", columns="Model", values="Delta").loc[order]
 
-    ax = pivot.plot(kind="bar")
+    ax = tbl.plot(kind="bar")
     ax.axhline(0, linewidth=1)
-    ax.set_title(f"{dataset}: Δ{METRIC} vs baseline")
+    ax.set_title(f"{ds}: Δ{metric} vs baseline")
     ax.set_xlabel("Preprocessing")
-    ax.set_ylabel(f"Δ{METRIC}")
-    _add_bar_labels(ax, fmt="{:+.3f}")
+    ax.set_ylabel(f"Δ{metric}")
+    add_labels(ax, fmt="{:+.3f}")
 
     plt.tight_layout()
-    out = os.path.join(DATA_DIR, out_name)
-    plt.savefig(out, dpi=200)
+    path = os.path.join(data_dir, name)
+    plt.savefig(path, dpi=200)
     plt.close()
-    print("Saved:", out)
+    print("Saved:", path)
 
 
-def plot_line(df, dataset, out_name):
+def make_line(df, ds, name):
     """Line chart with point labels."""
-    sub = df[df["Dataset"] == dataset]
+    sub = df[df["Dataset"] == ds]
 
     plt.figure()
-    x = list(range(len(ORDER)))
+    x = list(range(len(order)))
 
-    for model in sub["Model"].unique():
-        y = sub[sub["Model"] == model].set_index("Preprocessing").loc[ORDER][METRIC].tolist()
-        plt.plot(x, y, marker="o", label=model)
+    for m in sub["Model"].unique():
+        y = sub[sub["Model"] == m].set_index("Preprocessing").loc[order][metric].tolist()
+        plt.plot(x, y, marker="o", label=m)
 
         # annotate points
-        for xi, yi in zip(x, y):
-            plt.text(xi, yi, f"{yi:.3f}", ha="center", va="bottom", fontsize=9)
+        for i, j in zip(x, y):
+            plt.text(i, j, f"{j:.3f}", ha="center", va="bottom", fontsize=9)
 
-    plt.xticks(x, ORDER)
-    plt.title(f"{dataset}: {METRIC} Trend")
+    plt.xticks(x, order)
+    plt.title(f"{ds}: {metric} Trend")
     plt.xlabel("Preprocessing")
-    plt.ylabel(METRIC)
+    plt.ylabel(metric)
     plt.legend()
 
     plt.tight_layout()
-    out = os.path.join(DATA_DIR, out_name)
-    plt.savefig(out, dpi=200)
+    path = os.path.join(data_dir, name)
+    plt.savefig(path, dpi=200)
     plt.close()
-    print("Saved:", out)
+    print("Saved:", path)
 
 
 def main():
-    if not os.path.exists(CSV_PATH):
-        raise FileNotFoundError(f"Missing: {CSV_PATH}. Run train.py first.")
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Missing: {csv_path}. Run train.py first.")
 
-    df = pd.read_csv(CSV_PATH)
+    df = pd.read_csv(csv_path)
 
     # Basic checks
-    need_cols = {"Dataset", "Preprocessing", "Model", METRIC}
-    missing = need_cols - set(df.columns)
-    if missing:
-        raise ValueError(f"results.csv missing columns: {missing}. Found: {df.columns.tolist()}")
+    need = {"Dataset", "Preprocessing", "Model", metric}
+    miss = need - set(df.columns)
+    if miss:
+        raise ValueError(f"results.csv missing columns: {miss}. Found: {df.columns.tolist()}")
 
-    for dataset in ["IMDb", "Emotion"]:
-        if dataset not in set(df["Dataset"].unique()):
-            print(f"Warning: dataset '{dataset}' not found in results.csv. Skipping.")
+    for ds in ["IMDb", "Emotion"]:
+        if ds not in set(df["Dataset"].unique()):
+            print(f"Warning: dataset '{ds}' not found in results.csv. Skipping.")
             continue
 
-        plot_bar(df, dataset, f"{dataset.lower()}_bar.png")
-        plot_delta_bar(df, dataset, f"{dataset.lower()}_delta_bar.png")
-        plot_line(df, dataset, f"{dataset.lower()}_line.png")
+        make_bar(df, ds, f"{ds.lower()}_bar.png")
+        make_delta_bar(df, ds, f"{ds.lower()}_delta_bar.png")
+        make_line(df, ds, f"{ds.lower()}_line.png")
 
-    print("\nDone. All figures are in:", DATA_DIR)
+    print("\nDone. All figures are in:", data_dir)
 
 
 if __name__ == "__main__":
